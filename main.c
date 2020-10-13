@@ -8,7 +8,6 @@
 #define _green_on    5
 #define _both_on     6
 #define _both_off    7
-#define _counting    8
 #define _pressed     1
 #define _released    0
 
@@ -19,13 +18,10 @@ int main(void){
     P1OUT |= B1;
     P1REN |= B1;
     TA0CTL |= MC_1|ID_0|TASSEL_1|TACLR;
-    TA1CTL |= ID_3|TASSEL_2|TACLR;
     TA0CCR0 |= 5999;
-    TA1CCR0 |= 31249;
-    DCOCTL   = CALDCO_1MHZ;
-    BCSCTL1  = CALBC1_1MHZ;
-    BCSCTL2 |= DIVS_3;                      // smclk divider set to 8
-    BCSCTL3 |= LFXT1S_2;                    // set aclk to vlo
+    BCSCTL1 |= 0x80;
+    BCSCTL2 |= SELM_3;
+    BCSCTL3 |= LFXT1S_2;
 
     volatile unsigned int state = 1, event = 0, next_state = 1;
 
@@ -43,7 +39,8 @@ int main(void){
         case _init :
             switch (event) {
             case _pressed :
-                state = _counting;
+                TA0CTL &= ~TACLR;
+                state = _both_on;
                 break;
             case _released:
                 TA0CCR0 = 5999;
@@ -55,7 +52,8 @@ int main(void){
         case _1st_red_on :
             switch (event) {
             case _pressed :
-                state = _counting;
+                TA0CTL &= ~TACLR;
+                state = _both_on;
                 break;
             case _released:
                 next_state = _1st_red_off;
@@ -66,7 +64,8 @@ int main(void){
         case _1st_red_off :
             switch (event) {
             case _pressed :
-                state = _counting;
+                TA0CTL &= ~TACLR;
+                state = _both_on;
                 break;
             case _released:
                 next_state = _2nd_red_on;
@@ -77,7 +76,8 @@ int main(void){
         case _2nd_red_on :
             switch (event) {
             case _pressed :
-                state = _counting;
+                TA0CTL &= ~TACLR;
+                state = _both_on;
                 break;
             case _released:
                 next_state = _2nd_red_off;
@@ -88,7 +88,8 @@ int main(void){
         case _2nd_red_off :
             switch (event) {
             case _pressed :
-                state = _counting;
+                TA0CTL &= ~TACLR;
+                state = _both_on;
                 break;
             case _released:
                 next_state = _green_on;
@@ -99,8 +100,9 @@ int main(void){
         case _green_on :
             switch (event) {
             case _pressed :
+                TA0CTL &= ~TACLR;
                 TA0CCR0 = 5999;
-                state = _counting;
+                state = _both_on;
                 break;
             case _released:
                 next_state = _init;
@@ -117,7 +119,7 @@ int main(void){
                 break;
             case _released:
                 state = _1st_red_on;
-                TA0CTL |= TACLR;
+                TA0CTL &= ~TACLR;
                 P1OUT &= ~0x41;
                 break;
             }
@@ -130,34 +132,12 @@ int main(void){
                 break;
             case _released:
                 state = _1st_red_on;
-                TA0CTL |= TACLR;
-                P1OUT &= ~0x41;
-                break;
-            }
-            break;
-        case _counting:
-            switch (event) {
-            case _pressed :
-                P1OUT |= 0x41;
-                TA0CTL &= ~MC_1;
-                TA1CTL |= MC_1;
-
-                if (TA1CTL&TAIFG) {
-                    state = _both_off;
-                    TA1CTL &= ~TAIFG;
-                    TA1CTL &= ~MC_1;
-                    TA0CTL |= MC_1|TACLR;
-                }
-                break;
-            case _released:
-                state = _1st_red_on;
-                TA0CTL |= MC_1|TACLR;
+                TA0CTL &= ~TACLR;
                 P1OUT &= ~0x41;
                 break;
             }
             break;
         }
-
     }
 
     return 0;
