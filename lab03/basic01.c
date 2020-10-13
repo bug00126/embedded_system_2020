@@ -9,7 +9,7 @@
 #define _both_on     6
 #define _both_off    7
 
-volatile unsigned int state, next_state, count = 0, press = 0;
+volatile unsigned int state, next_state, press=0;
 
 void init() {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
@@ -20,15 +20,9 @@ void init() {
     P1IE  |= B1;
     P1IES |= B1;
     P1IFG &= ~B1;
-    TA0CTL  |= MC_1|ID_0|TASSEL_1|TACLR;
+    TA0CTL |= MC_1|ID_0|TASSEL_1|TACLR;
     TA0CCR0 |= 5999;
     TA0CCTL0 = CCIE;
-    TA1CTL  |= ID_3|TASSEL_2|TACLR;
-    TA1CCTL0 = CCIE;
-    DCOCTL   = CALDCO_1MHZ;
-    BCSCTL1  = CALBC1_1MHZ;
-    BCSCTL2 &= 0;
-    BCSCTL2 |= DIVS_3;
     BCSCTL3 |= LFXT1S_2;
     __enable_interrupt();
     state = 1;
@@ -85,49 +79,18 @@ __interrupt void TA0_ISR() {
     update();
 }
 
-#pragma vector = TIMER1_A0_VECTOR
-__interrupt void TA1_ISR() {
-    if (press) {
-        count++;
-    } else if (count > 0) {
-        count--;
-        if (count==0) {
-            TA1CTL &= ~MC_2;
-            TA1CTL |= MC_1;
-        }
-    } else {
-        TA1CTL &= ~MC_1;        // turn off Timer1
-        TA0CTL |= TACLR;        // reset Timer0
-        TA1CTL |= TACLR;
-        P1OUT &= ~0x41;
-        state = _1st_red_on;
-        update();
-    }
-}
-
 #pragma vector = PORT1_VECTOR
 __interrupt void Port_1() {
-    if (!press) { // when pressing down
-        TA1CTL |= MC_2;
+    if (!press) {
+        state = _both_on;
         press = 1;
-    } else {     // when releasing
+    } else {
+        state = _1st_red_on;
         press = 0;
-        if (TA1R > 46874 || count > 0) {
-            TA1CCR0 = TA1R;
-            TA1CTL &= ~MC_2;
-            if (count > 0) TA1CTL |= MC_2|TACLR;
-            else {
-                TA1CTL |= MC_1|TACLR;
-            }
-            TA0CTL |= TACLR;
-            state = _both_on;
-            TA0CCR0 = 5999;
-            update();
-        } else {
-            TA1CTL &= ~MC_2;
-            TA1CTL |= TACLR;
-        }
     }
+    TA0CCR0 = 5999;
+    TA0CTL |= TACLR;
+    P1OUT &= ~0x41;
     P1IFG &= ~B1;
+    update();
 }
-
